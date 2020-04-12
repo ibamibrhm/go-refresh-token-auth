@@ -99,12 +99,15 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
-	db.Model(&user).Updates(input)
+	if err := db.Model(&user).Updates(input).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{"data": user})
 }
 
-// DeleteUser -> delete single user for route DELETE /books/:id
+// DeleteUser -> delete single user for route DELETE /users/:id
 func DeleteUser(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 
