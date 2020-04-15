@@ -5,31 +5,32 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/ibamibrhm/donation-server/controllers"
 	"github.com/ibamibrhm/donation-server/models"
+	"github.com/ibamibrhm/donation-server/routes"
 )
 
 func main() {
-	r := gin.Default()
+	router := gin.Default()
 	db := models.SetupModels()
+
+	//routes
+	userRouter := new(routes.UserRouter)
+
 	defer db.Close()
 
-	r.Use(func(c *gin.Context) {
+	router.Use(func(c *gin.Context) {
 		c.Set("db", db)
 		c.Next()
 	})
 
-	r.Use(cors.Default())
+	router.Use(cors.Default())
 
-	r.GET("/", func(c *gin.Context) {
+	router.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"data": "hello world"})
 	})
 
-	r.GET("/users", controllers.FindUsers)
-	r.GET("/users/:id", controllers.FindUser)
-	r.POST("/users", controllers.Register)
-	r.PATCH("/users/:id", controllers.UpdateUser)
-	r.DELETE("/users/:id", controllers.DeleteUser)
+	// all routes
+	userRouter.Routes(router)
 
-	r.Run()
+	router.Run()
 }

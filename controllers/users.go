@@ -1,20 +1,20 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/ibamibrhm/donation-server/helpers"
 	"github.com/ibamibrhm/donation-server/models"
 	"github.com/jinzhu/gorm"
 	"golang.org/x/crypto/bcrypt"
 )
 
-func hashPassword(password string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
-	return string(bytes), err
-}
+//UserController ...
+type UserController struct{}
 
-func checkPasswordHash(password, hash string) bool {
+func verifyPassword(password, hash string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
 }
@@ -27,6 +27,11 @@ type registerInput struct {
 	Phone    string `json:"phone"`
 }
 
+type loginInput struct {
+	EmailUsername string `json:"emailUsername"`
+	Password      string `json:"password"`
+}
+
 type updateUserInput struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
@@ -35,18 +40,8 @@ type updateUserInput struct {
 	Phone    string `json:"phone"`
 }
 
-// FindUsers -> get all users for route GET /users
-func FindUsers(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
-
-	var users []models.User
-	db.Find(&users)
-
-	c.JSON(http.StatusOK, gin.H{"data": users})
-}
-
-// Register -> create user for route POST /users
-func Register(c *gin.Context) {
+// Register -> create user for route POST /users/regsiter
+func (ctrl UserController) Register(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 
 	// Validate input
@@ -56,19 +51,59 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	hashedPassword, _ := hashPassword(input.Password)
-
 	// Create user
-	user := models.User{Name: input.Name, Email: input.Email, Username: input.Username, Password: hashedPassword, Phone: input.Phone}
+	user := models.User{Name: input.Name, Email: input.Email, Username: input.Username, Password: input.Password, Phone: input.Phone}
 	if err := db.Create(&user).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"data": user})
+	c.JSON(http.StatusOK, gin.H{"data": "User created"})
+}
+
+// Login -> login user for route POST /users/login
+func (ctrl UserController) Login(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+
+	// Validate input
+	var input loginInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var user models.User
+	if err := db.Where("email = ?", input.EmailUsername).Or("username = ?", input.EmailUsername).First(&user).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Akun belum terdaftar"})
+		return
+	}
+
+	match := verifyPassword(input.Password, user.Password)
+
+	if !match {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Wrong Password!"})
+		return
+	}
+
+	token, _ := helpers.CreateToken(user.ID)
+
+	c.JSON(http.StatusOK, gin.H{"data": gin.H{
+		"user":  user,
+		"token": token,
+	}})
+}
+
+// FindUsers -> get all users for route GET /users
+func (ctrl UserController) FindUsers(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+
+	var users []models.User
+	db.Find(&users)
+
+	c.JSON(http.StatusOK, gin.H{"data": users})
 }
 
 // FindUser -> get single user for route GET /users/:id
-func FindUser(c *gin.Context) {
+func (ctrl UserController) FindUser(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 
 	// Get model if exist
@@ -82,11 +117,17 @@ func FindUser(c *gin.Context) {
 }
 
 // UpdateUser -> update single user for route -> PATCH /users/:id
-func UpdateUser(c *gin.Context) {
+func (ctrl UserController) UpdateUser(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
+	authUserID := fmt.Sprint(c.MustGet("userId"))
 
-	// Get model if exist
+	if authUserID != c.Param("id") {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized!"})
+		return
+	}
+
 	var user models.User
+
 	if err := db.Where("id = ?", c.Param("id")).First(&user).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Record not found!"})
 		return
@@ -108,8 +149,14 @@ func UpdateUser(c *gin.Context) {
 }
 
 // DeleteUser -> delete single user for route DELETE /users/:id
-func DeleteUser(c *gin.Context) {
+func (ctrl UserController) DeleteUser(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
+	authUserID := fmt.Sprint(c.MustGet("userId"))
+
+	if authUserID != c.Param("id") {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized!"})
+		return
+	}
 
 	// Get model if exist
 	var user models.User
