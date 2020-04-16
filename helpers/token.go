@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -15,11 +16,11 @@ func CreateToken(userID uint) (string, error) {
 	claims["userId"] = userID
 	claims["exp"] = time.Now().Add(time.Hour * 1).Unix() //Token expires after 1 hour
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(os.Getenv("JWT_SECRET")))
 
+	return token.SignedString([]byte(os.Getenv("JWT_SECRET")))
 }
 
-// TokenValidation ...
+// TokenValidation -> validate JWT token
 func TokenValidation(bearerToken string) (uint, error) {
 	tokenString := strings.Split(bearerToken, " ")[1]
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
@@ -39,5 +40,5 @@ func TokenValidation(bearerToken string) (uint, error) {
 		return uid, nil
 	}
 
-	return 0, nil
+	return 0, errors.New("Unexpected error")
 }
