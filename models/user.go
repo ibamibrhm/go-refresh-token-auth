@@ -14,11 +14,12 @@ func hashPassword(password string) (string, error) {
 // User struct
 type User struct {
 	CommonModelFields
-	Name     string `gorm:"not null" json:"name,omitempty"`
-	Email    string `gorm:"unique;not null" json:"email,omitempty"`
-	Username string `gorm:"unique;not null" json:"username,omitempty"`
-	Password string `gorm:"not null" json:"password,omitempty"`
-	Phone    string `gorm:"unique" json:"phone,omitempty" sql:"DEFAULT:NULL"`
+	Name         string `gorm:"not null" json:"name,omitempty"`
+	Email        string `gorm:"unique;not null" json:"email,omitempty"`
+	Username     string `gorm:"unique;not null" json:"username,omitempty"`
+	Password     string `gorm:"not null" json:"password,omitempty"`
+	Phone        string `gorm:"unique" json:"phone,omitempty" sql:"DEFAULT:NULL"`
+	TokenVersion uint   `gorm:"default:0" json:"tokenVersion"`
 }
 
 // BeforeSave -> hook for hashing password before save to DB

@@ -84,7 +84,12 @@ func (ctrl UserController) Login(c *gin.Context) {
 		return
 	}
 
-	token, _ := helpers.CreateToken(user.ID)
+	token, _ := helpers.CreateToken(user)
+	refreshToken, _ := helpers.CreateRefreshToken(user)
+
+	// SetCookie(name string, value string, maxAge int, path string, domain string, secure bool, httpOnly bool)
+	// SetCookie adds a Set-Cookie header to the ResponseWriter's headers.
+	c.SetCookie("jid", refreshToken, 60*60*24*7 /* 7 days */, "/", "localhost", false, true)
 
 	c.JSON(http.StatusOK, gin.H{"data": gin.H{
 		"user":  user,
@@ -105,6 +110,12 @@ func (ctrl UserController) FindUsers(c *gin.Context) {
 // FindUser -> get single user for route GET /users/:id
 func (ctrl UserController) FindUser(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
+	authUserID := fmt.Sprint(c.MustGet("userId"))
+
+	if authUserID != c.Param("id") {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized!"})
+		return
+	}
 
 	// Get model if exist
 	var user models.User
@@ -168,4 +179,10 @@ func (ctrl UserController) DeleteUser(c *gin.Context) {
 	db.Delete(&user)
 
 	c.JSON(http.StatusOK, gin.H{"data": true})
+}
+
+// Logout -> logout and destroy cookies
+func (ctrl UserController) Logout(c *gin.Context) {
+	c.SetCookie("jid", "", 1, "/", "localhost", false, true)
+	c.JSON(http.StatusOK, gin.H{"data": ""})
 }
