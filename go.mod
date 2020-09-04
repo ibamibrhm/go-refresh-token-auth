@@ -1,4 +1,4 @@
-module github.com/ibamibrhm/donation-server
+module github.com/ibamibrhm/go-refresh-token-auth
 
 go 1.14
 
